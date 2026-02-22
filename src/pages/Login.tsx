@@ -19,13 +19,12 @@ const Login = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    const ok = login(email, password);
+    const result = await login(email, password);
     setLoading(false);
-    if (ok) {
+    if (result.ok) {
       navigate("/dashboard");
     } else {
-      setError("Credenciais inválidas. Use admin@itadigital.com.br / admin123");
+      setError(result.error || "Credenciais inválidas. Verifique e tente novamente.");
     }
   };
 
@@ -125,7 +124,7 @@ const Login = () => {
 
           <div className="mt-6 p-3 rounded-lg bg-muted/50 border border-border/50">
             <p className="text-xs text-muted-foreground text-center">
-              <strong>Demo:</strong> admin@itadigital.com.br / admin123
+              Acesse com suas credenciais do sistema
             </p>
           </div>
         </div>
