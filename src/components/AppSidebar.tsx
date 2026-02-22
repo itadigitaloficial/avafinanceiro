@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, LogOut } from "lucide-react";
+import { LayoutDashboard, FileText, LogOut, UserCircle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,7 @@ import {
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Contas a Pagar", url: "/contas", icon: FileText },
+  { title: "Perfil", url: "/perfil", icon: UserCircle },
 ];
 
 export function AppSidebar() {
@@ -75,11 +76,11 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-semibold text-sidebar-primary">
-            {user?.name?.[0] || "A"}
+            {user?.nome?.[0] || "A"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-sidebar-foreground truncate">{user?.name}</p>
-            <p className="text-[10px] text-sidebar-foreground/50 truncate">{user?.email}</p>
+            <p className="text-xs font-medium text-sidebar-foreground truncate">{user?.nome}</p>
+            <p className="text-[10px] text-sidebar-foreground/50 truncate">{user?.mail}</p>
           </div>
           <button onClick={handleLogout} className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
             <LogOut className="h-4 w-4" />
