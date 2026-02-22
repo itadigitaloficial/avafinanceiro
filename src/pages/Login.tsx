@@ -57,7 +57,7 @@ const Login = () => {
               className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
               style={{ background: "linear-gradient(135deg, hsl(215 65% 22%), hsl(160 45% 40%))" }}
             >
-              <span className="text-2xl font-bold text-white">ITA</span>
+              <span className="text-2xl font-bold text-white">AVA</span>
             </motion.div>
             <h1 className="text-2xl font-bold text-foreground">Contas a Pagar</h1>
             <p className="text-muted-foreground text-sm mt-1">Acesse o painel de gestão financeira</p>
