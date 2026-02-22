@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useContasPagar } from "@/hooks/useContasPagar";
+import { useFornecedores } from "@/hooks/useFornecedores";
 import { ContaPagar } from "@/types/conta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, FileText, ExternalLink, X } from "lucide-react";
+import { Search, FileText, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
+
+const ITEMS_PER_PAGE = 15;
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtDate = (d?: string) => {
@@ -28,13 +31,42 @@ function statusBadge(status?: string) {
 
 const ContasPagar = () => {
   const { data: contas, isLoading, error } = useContasPagar();
+  const { data: fornecedores } = useFornecedores();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<ContaPagar | null>(null);
+  const [page, setPage] = useState(1);
+
+  // Map fornecedor ID -> razão social
+  const fornecedorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    fornecedores?.forEach((f) => {
+      if (f._id) map[f._id] = f.nome_razao_social || f.nome_fantasia || f.nome || f._id;
+    });
+    return map;
+  }, [fornecedores]);
+
+  const getFornecedorNome = (conta: ContaPagar) => {
+    // Try to resolve by fornecedor_id first, then fornecedor field
+    if (conta.fornecedor_id && fornecedorMap[conta.fornecedor_id]) {
+      return fornecedorMap[conta.fornecedor_id];
+    }
+    if (conta.fornecedor && fornecedorMap[conta.fornecedor]) {
+      return fornecedorMap[conta.fornecedor];
+    }
+    return conta.fornecedor || conta.fornecedor_id || "—";
+  };
 
   const filtered = useMemo(() => {
     if (!contas) return [];
     let list = [...contas];
+
+    // Sort by most recent first (by vencimento or data_pagamento)
+    list.sort((a, b) => {
+      const da = a.vencimento || a.data_pagamento || "";
+      const db = b.vencimento || b.data_pagamento || "";
+      return db.localeCompare(da);
+    });
 
     // Mark overdue
     const hoje = new Date();
@@ -52,6 +84,7 @@ const ContasPagar = () => {
       const q = search.toLowerCase();
       list = list.filter(
         (c) =>
+          getFornecedorNome(c).toLowerCase().includes(q) ||
           c.fornecedor?.toLowerCase().includes(q) ||
           c.numero_documento?.toLowerCase().includes(q) ||
           c.categoria?.toLowerCase().includes(q) ||
@@ -60,7 +93,14 @@ const ContasPagar = () => {
       );
     }
     return list;
-  }, [contas, search, statusFilter]);
+  }, [contas, search, statusFilter, fornecedorMap]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  // Reset page when filters change
+  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const handleStatus = (v: string) => { setStatusFilter(v); setPage(1); };
 
   if (error) {
     return (
@@ -90,11 +130,11 @@ const ContasPagar = () => {
             <Input
               placeholder="Buscar por fornecedor, documento..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="pl-10 bg-card"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={handleStatus}>
             <SelectTrigger className="w-[160px] bg-card">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -129,21 +169,21 @@ const ContasPagar = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {paged.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                       Nenhuma conta encontrada
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((conta, i) => (
+                  paged.map((conta, i) => (
                     <TableRow
                       key={conta.uniq_id || conta.id || i}
                       className="cursor-pointer hover:bg-muted/30 transition-colors"
                       onClick={() => setSelected(conta)}
                     >
                       <TableCell className="font-medium text-sm">{conta.numero_documento || "—"}</TableCell>
-                      <TableCell className="text-sm">{conta.fornecedor || conta.fornecedor_id || "—"}</TableCell>
+                      <TableCell className="text-sm">{getFornecedorNome(conta)}</TableCell>
                       <TableCell className="text-sm">{conta.categoria || "—"}</TableCell>
                       <TableCell className="text-right font-semibold text-sm">{fmt(conta.valor || 0)}</TableCell>
                       <TableCell className="text-sm">{fmtDate(conta.vencimento)}</TableCell>
@@ -156,9 +196,55 @@ const ContasPagar = () => {
           </motion.div>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          {filtered.length} registro(s) encontrado(s)
-        </p>
+        {/* Pagination */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} registro(s) — Página {page} de {totalPages}
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 text-xs rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 transition-colors"
+              >
+                Anterior
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let p: number;
+                if (totalPages <= 5) {
+                  p = i + 1;
+                } else if (page <= 3) {
+                  p = i + 1;
+                } else if (page >= totalPages - 2) {
+                  p = totalPages - 4 + i;
+                } else {
+                  p = page - 2 + i;
+                }
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-8 h-8 text-xs rounded-lg border transition-colors ${
+                      p === page
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border bg-card hover:bg-muted"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1.5 text-xs rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 transition-colors"
+              >
+                Próximo
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Detail modal */}
@@ -176,7 +262,7 @@ const ContasPagar = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <Detail label="Documento" value={selected.numero_documento} />
                 <Detail label="Status" value={selected.status} badge />
-                <Detail label="Fornecedor" value={selected.fornecedor || selected.fornecedor_id} />
+                <Detail label="Fornecedor" value={getFornecedorNome(selected)} />
                 <Detail label="Categoria" value={selected.categoria} />
                 <Detail label="Empresa" value={selected.empresa} />
                 <Detail label="Valor" value={fmt(selected.valor || 0)} highlight />
