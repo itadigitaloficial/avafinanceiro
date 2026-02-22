@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
+import { useCategorias } from "@/hooks/useCategorias";
 import { ContaPagar } from "@/types/conta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ function statusBadge(status?: string) {
 const ContasPagar = () => {
   const { data: contas, isLoading, error } = useContasPagar();
   const { data: fornecedores } = useFornecedores();
+  const { data: categorias } = useCategorias();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<ContaPagar | null>(null);
@@ -45,6 +47,20 @@ const ContasPagar = () => {
     });
     return map;
   }, [fornecedores]);
+
+  // Map categoria ID -> nome
+  const categoriaMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    categorias?.forEach((c) => {
+      if (c._id) map[c._id] = c.categoria || c._id;
+    });
+    return map;
+  }, [categorias]);
+
+  const getCategoriaNome = (id?: string) => {
+    if (!id) return "—";
+    return categoriaMap[id] || id;
+  };
 
   const getFornecedorNome = (conta: ContaPagar) => {
     // Try to resolve by fornecedor_id first, then fornecedor field
@@ -61,10 +77,10 @@ const ContasPagar = () => {
     if (!contas) return [];
     let list = [...contas];
 
-    // Sort by most recent first (by vencimento or data_pagamento)
+    // Sort by most recently created first
     list.sort((a, b) => {
-      const da = a.vencimento || a.data_pagamento || "";
-      const db = b.vencimento || b.data_pagamento || "";
+      const da = (a as any)["Created Date"] || a.vencimento || "";
+      const db = (b as any)["Created Date"] || b.vencimento || "";
       return db.localeCompare(da);
     });
 
@@ -93,7 +109,7 @@ const ContasPagar = () => {
       );
     }
     return list;
-  }, [contas, search, statusFilter, fornecedorMap]);
+  }, [contas, search, statusFilter, fornecedorMap, categoriaMap]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -184,7 +200,7 @@ const ContasPagar = () => {
                     >
                       <TableCell className="font-medium text-sm">{conta.numero_documento || "—"}</TableCell>
                       <TableCell className="text-sm">{getFornecedorNome(conta)}</TableCell>
-                      <TableCell className="text-sm">{conta.categoria || "—"}</TableCell>
+                      <TableCell className="text-sm">{getCategoriaNome(conta.categoria)}</TableCell>
                       <TableCell className="text-right font-semibold text-sm">{fmt(conta.valor || 0)}</TableCell>
                       <TableCell className="text-sm">{fmtDate(conta.vencimento)}</TableCell>
                       <TableCell>{statusBadge(conta.status)}</TableCell>
@@ -263,7 +279,7 @@ const ContasPagar = () => {
                 <Detail label="Documento" value={selected.numero_documento} />
                 <Detail label="Status" value={selected.status} badge />
                 <Detail label="Fornecedor" value={getFornecedorNome(selected)} />
-                <Detail label="Categoria" value={selected.categoria} />
+                <Detail label="Categoria" value={getCategoriaNome(selected.categoria)} />
                 <Detail label="Empresa" value={selected.empresa} />
                 <Detail label="Valor" value={fmt(selected.valor || 0)} highlight />
                 <Detail label="Vencimento" value={fmtDate(selected.vencimento)} />
