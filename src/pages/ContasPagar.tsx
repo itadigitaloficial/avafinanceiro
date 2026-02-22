@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
@@ -11,8 +13,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, FileText, ExternalLink } from "lucide-react";
-import { motion } from "framer-motion";
+import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Search, FileText, ExternalLink, CalendarIcon, Filter, X, Download,
+  DollarSign, Clock, Building2, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { ReportDialog } from "@/components/contas/ReportDialog";
 
 const ITEMS_PER_PAGE = 15;
 
@@ -22,12 +32,13 @@ const fmtDate = (d?: string) => {
   return new Date(d).toLocaleDateString("pt-BR");
 };
 
-function statusBadge(status?: string) {
+function statusBadge(status?: string, size: "sm" | "md" = "sm") {
   const s = status?.toLowerCase() || "";
-  if (s === "pago") return <Badge className="bg-accent text-accent-foreground">Pago</Badge>;
-  if (s === "vencido") return <Badge variant="destructive">Vencido</Badge>;
-  if (s === "pendente" || s === "aberto") return <Badge className="bg-[hsl(38,92%,50%)] text-foreground">Pendente</Badge>;
-  return <Badge variant="outline">{status || "—"}</Badge>;
+  const base = size === "md" ? "px-3 py-1 text-xs" : "";
+  if (s === "pago") return <Badge className={cn("bg-accent text-accent-foreground", base)}>Pago</Badge>;
+  if (s === "vencido") return <Badge variant="destructive" className={base}>Vencido</Badge>;
+  if (s === "pendente" || s === "aberto") return <Badge className={cn("bg-[hsl(38,92%,50%)] text-foreground", base)}>Pendente</Badge>;
+  return <Badge variant="outline" className={base}>{status || "—"}</Badge>;
 }
 
 const ContasPagar = () => {
@@ -36,10 +47,15 @@ const ContasPagar = () => {
   const { data: categorias } = useCategorias();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [categoriaFilter, setCategoriaFilter] = useState("all");
+  const [fornecedorFilter, setFornecedorFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [selected, setSelected] = useState<ContaPagar | null>(null);
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
-  // Map fornecedor ID -> razão social
   const fornecedorMap = useMemo(() => {
     const map: Record<string, string> = {};
     fornecedores?.forEach((f) => {
@@ -48,7 +64,6 @@ const ContasPagar = () => {
     return map;
   }, [fornecedores]);
 
-  // Map categoria ID -> nome
   const categoriaMap = useMemo(() => {
     const map: Record<string, string> = {};
     categorias?.forEach((c) => {
@@ -63,28 +78,39 @@ const ContasPagar = () => {
   };
 
   const getFornecedorNome = (conta: ContaPagar) => {
-    // Try to resolve by fornecedor_id first, then fornecedor field
-    if (conta.fornecedor_id && fornecedorMap[conta.fornecedor_id]) {
-      return fornecedorMap[conta.fornecedor_id];
-    }
-    if (conta.fornecedor && fornecedorMap[conta.fornecedor]) {
-      return fornecedorMap[conta.fornecedor];
-    }
+    if (conta.fornecedor_id && fornecedorMap[conta.fornecedor_id]) return fornecedorMap[conta.fornecedor_id];
+    if (conta.fornecedor && fornecedorMap[conta.fornecedor]) return fornecedorMap[conta.fornecedor];
     return conta.fornecedor || conta.fornecedor_id || "—";
   };
+
+  // Unique fornecedores/categorias for filter dropdowns
+  const uniqueFornecedores = useMemo(() => {
+    if (!contas) return [];
+    const ids = new Set<string>();
+    contas.forEach((c) => {
+      const id = c.fornecedor || c.fornecedor_id;
+      if (id) ids.add(id);
+    });
+    return Array.from(ids).map((id) => ({ id, nome: fornecedorMap[id] || id })).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [contas, fornecedorMap]);
+
+  const uniqueCategorias = useMemo(() => {
+    if (!contas) return [];
+    const ids = new Set<string>();
+    contas.forEach((c) => { if (c.categoria) ids.add(c.categoria); });
+    return Array.from(ids).map((id) => ({ id, nome: categoriaMap[id] || id })).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [contas, categoriaMap]);
 
   const filtered = useMemo(() => {
     if (!contas) return [];
     let list = [...contas];
 
-    // Sort by most recently created first
     list.sort((a, b) => {
       const da = (a as any)["Created Date"] || a.vencimento || "";
       const db = (b as any)["Created Date"] || b.vencimento || "";
       return db.localeCompare(da);
     });
 
-    // Mark overdue
     const hoje = new Date();
     list = list.map((c) => {
       if (c.vencimento && new Date(c.vencimento) < hoje && c.status?.toLowerCase() !== "pago") {
@@ -93,9 +119,23 @@ const ContasPagar = () => {
       return c;
     });
 
-    if (statusFilter !== "all") {
-      list = list.filter((c) => c.status?.toLowerCase() === statusFilter);
+    if (statusFilter !== "all") list = list.filter((c) => c.status?.toLowerCase() === statusFilter);
+    if (categoriaFilter !== "all") list = list.filter((c) => c.categoria === categoriaFilter);
+    if (fornecedorFilter !== "all") list = list.filter((c) => (c.fornecedor || c.fornecedor_id) === fornecedorFilter);
+
+    if (dateFrom) {
+      list = list.filter((c) => {
+        const d = c.vencimento || c.data_pagamento;
+        return d && new Date(d) >= dateFrom;
+      });
     }
+    if (dateTo) {
+      list = list.filter((c) => {
+        const d = c.vencimento || c.data_pagamento;
+        return d && new Date(d) <= dateTo;
+      });
+    }
+
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -103,20 +143,31 @@ const ContasPagar = () => {
           getFornecedorNome(c).toLowerCase().includes(q) ||
           c.fornecedor?.toLowerCase().includes(q) ||
           c.numero_documento?.toLowerCase().includes(q) ||
-          c.categoria?.toLowerCase().includes(q) ||
+          getCategoriaNome(c.categoria).toLowerCase().includes(q) ||
           c.empresa?.toLowerCase().includes(q) ||
           c.descricao?.toLowerCase().includes(q)
       );
     }
     return list;
-  }, [contas, search, statusFilter, fornecedorMap, categoriaMap]);
+  }, [contas, search, statusFilter, categoriaFilter, fornecedorFilter, dateFrom, dateTo, fornecedorMap, categoriaMap]);
 
+  const totalValorFiltered = useMemo(() => filtered.reduce((s, c) => s + (c.valor || 0), 0), [filtered]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  // Reset page when filters change
-  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
-  const handleStatus = (v: string) => { setStatusFilter(v); setPage(1); };
+  const resetPage = () => setPage(1);
+  const handleSearch = (v: string) => { setSearch(v); resetPage(); };
+  const activeFilters = [statusFilter !== "all", categoriaFilter !== "all", fornecedorFilter !== "all", !!dateFrom, !!dateTo].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setCategoriaFilter("all");
+    setFornecedorFilter("all");
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setSearch("");
+    resetPage();
+  };
 
   if (error) {
     return (
@@ -133,61 +184,178 @@ const ContasPagar = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Contas a Pagar</h1>
-          <p className="text-sm text-muted-foreground">Gerencie todas as contas e pagamentos</p>
+      <div className="space-y-5">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Contas a Pagar</h1>
+            <p className="text-sm text-muted-foreground">Gerencie todas as contas e pagamentos</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowReport(true)} className="gap-2">
+              <Download className="h-4 w-4" /> Gerar Relatório
+            </Button>
+          </div>
         </div>
 
-        {/* Filters */}
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-card rounded-xl border border-border p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Registros</p>
+            <p className="text-xl font-bold text-foreground mt-1">{filtered.length}</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total</p>
+            <p className="text-xl font-bold text-foreground mt-1">{fmt(totalValorFiltered)}</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Pagas</p>
+            <p className="text-xl font-bold text-accent mt-1">{filtered.filter(c => c.status?.toLowerCase() === "pago").length}</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Vencidas</p>
+            <p className="text-xl font-bold text-destructive mt-1">{filtered.filter(c => c.status?.toLowerCase() === "vencido").length}</p>
+          </div>
+        </div>
+
+        {/* Search + Filter toggle */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por fornecedor, documento..."
+              placeholder="Buscar por fornecedor, documento, categoria..."
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-10 bg-card"
             />
           </div>
-          <Select value={statusFilter} onValueChange={handleStatus}>
-            <SelectTrigger className="w-[160px] bg-card">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="pago">Pago</SelectItem>
-              <SelectItem value="pendente">Pendente</SelectItem>
-              <SelectItem value="aberto">Aberto</SelectItem>
-              <SelectItem value="vencido">Vencido</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showFilters ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filtros
+              {activeFilters > 0 && (
+                <span className="bg-primary-foreground text-primary rounded-full w-5 h-5 text-[10px] flex items-center justify-center font-bold">
+                  {activeFilters}
+                </span>
+              )}
+            </Button>
+            {activeFilters > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground">
+                <X className="h-3 w-3" /> Limpar
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Advanced filters panel */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-card rounded-xl border border-border p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Status</label>
+                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); resetPage(); }}>
+                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="pago">Pago</SelectItem>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="aberto">Aberto</SelectItem>
+                      <SelectItem value="vencido">Vencido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Categoria</label>
+                  <Select value={categoriaFilter} onValueChange={(v) => { setCategoriaFilter(v); resetPage(); }}>
+                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {uniqueCategorias.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Fornecedor</label>
+                  <Select value={fornecedorFilter} onValueChange={(v) => { setFornecedorFilter(v); resetPage(); }}>
+                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {uniqueFornecedores.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Data Início</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-background", !dateFrom && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Selecionar"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d); resetPage(); }} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Data Fim</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-background", !dateTo && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateTo ? format(dateTo, "dd/MM/yyyy") : "Selecionar"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d); resetPage(); }} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Table */}
         {isLoading ? (
           <div className="space-y-3">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-14 rounded-lg" />
-            ))}
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
           </div>
         ) : (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border border-border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Fornecedor</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="font-semibold">Documento</TableHead>
+                  <TableHead className="font-semibold">Fornecedor</TableHead>
+                  <TableHead className="font-semibold">Categoria</TableHead>
+                  <TableHead className="text-right font-semibold">Valor</TableHead>
+                  <TableHead className="font-semibold">Vencimento</TableHead>
+                  <TableHead className="font-semibold">Pagamento</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-16 text-muted-foreground">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
                       Nenhuma conta encontrada
                     </TableCell>
                   </TableRow>
@@ -195,14 +363,15 @@ const ContasPagar = () => {
                   paged.map((conta, i) => (
                     <TableRow
                       key={conta.uniq_id || conta.id || i}
-                      className="cursor-pointer hover:bg-muted/30 transition-colors"
+                      className="cursor-pointer hover:bg-muted/30 transition-colors group"
                       onClick={() => setSelected(conta)}
                     >
                       <TableCell className="font-medium text-sm">{conta.numero_documento || "—"}</TableCell>
-                      <TableCell className="text-sm">{getFornecedorNome(conta)}</TableCell>
-                      <TableCell className="text-sm">{getCategoriaNome(conta.categoria)}</TableCell>
-                      <TableCell className="text-right font-semibold text-sm">{fmt(conta.valor || 0)}</TableCell>
-                      <TableCell className="text-sm">{fmtDate(conta.vencimento)}</TableCell>
+                      <TableCell className="text-sm max-w-[200px] truncate">{getFornecedorNome(conta)}</TableCell>
+                      <TableCell className="text-sm max-w-[150px] truncate">{getCategoriaNome(conta.categoria)}</TableCell>
+                      <TableCell className="text-right font-semibold text-sm tabular-nums">{fmt(conta.valor || 0)}</TableCell>
+                      <TableCell className="text-sm tabular-nums">{fmtDate(conta.vencimento)}</TableCell>
+                      <TableCell className="text-sm tabular-nums">{fmtDate(conta.data_pagamento)}</TableCell>
                       <TableCell>{statusBadge(conta.status)}</TableCell>
                     </TableRow>
                   ))
@@ -215,92 +384,137 @@ const ContasPagar = () => {
         {/* Pagination */}
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            {filtered.length} registro(s) — Página {page} de {totalPages}
+            Mostrando {((page - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
           </p>
           {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 text-xs rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 transition-colors"
-              >
-                Anterior
-              </button>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(1)} disabled={page === 1}>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let p: number;
-                if (totalPages <= 5) {
-                  p = i + 1;
-                } else if (page <= 3) {
-                  p = i + 1;
-                } else if (page >= totalPages - 2) {
-                  p = totalPages - 4 + i;
-                } else {
-                  p = page - 2 + i;
-                }
+                if (totalPages <= 5) p = i + 1;
+                else if (page <= 3) p = i + 1;
+                else if (page >= totalPages - 2) p = totalPages - 4 + i;
+                else p = page - 2 + i;
                 return (
-                  <button
+                  <Button
                     key={p}
+                    variant={p === page ? "default" : "outline"}
+                    size="icon"
+                    className="h-8 w-8 text-xs"
                     onClick={() => setPage(p)}
-                    className={`w-8 h-8 text-xs rounded-lg border transition-colors ${
-                      p === page
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border bg-card hover:bg-muted"
-                    }`}
                   >
                     {p}
-                  </button>
+                  </Button>
                 );
               })}
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 transition-colors"
-              >
-                Próximo
-              </button>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(totalPages)} disabled={page === totalPages}>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Detail modal */}
+      {/* Detail modal - Professional */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-accent" />
-              Detalhes da Conta
-            </DialogTitle>
-            <DialogDescription>Informações completas do documento</DialogDescription>
-          </DialogHeader>
-          {selected && (
-            <div className="space-y-4 mt-2">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Detail label="Documento" value={selected.numero_documento} />
-                <Detail label="Status" value={selected.status} badge />
-                <Detail label="Fornecedor" value={getFornecedorNome(selected)} />
-                <Detail label="Categoria" value={getCategoriaNome(selected.categoria)} />
-                <Detail label="Empresa" value={selected.empresa} />
-                <Detail label="Valor" value={fmt(selected.valor || 0)} highlight />
-                <Detail label="Vencimento" value={fmtDate(selected.vencimento)} />
-                <Detail label="Pagamento" value={fmtDate(selected.data_pagamento)} />
+        <DialogContent className="max-w-2xl p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-primary/10 to-accent/10 px-6 pt-6 pb-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                Detalhes da Conta
+              </DialogTitle>
+              <DialogDescription>Documento {selected?.numero_documento || "—"}</DialogDescription>
+            </DialogHeader>
+            {selected && (
+              <div className="flex items-center gap-3 mt-3">
+                {statusBadge(selected.status, "md")}
+                <span className="text-2xl font-bold text-foreground">{fmt(selected.valor || 0)}</span>
               </div>
-              {selected.descricao && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Descrição</p>
-                  <p className="text-sm text-foreground">{selected.descricao}</p>
+            )}
+          </div>
+          {selected && (
+            <div className="px-6 pb-6 space-y-5">
+              {/* Info sections */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4">
+                <div className="space-y-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Building2 className="h-3.5 w-3.5" /> Informações Gerais
+                  </h4>
+                  <div className="space-y-3">
+                    <DetailRow label="Documento" value={selected.numero_documento} />
+                    <DetailRow label="Fornecedor" value={getFornecedorNome(selected)} />
+                    <DetailRow label="Empresa" value={selected.empresa} />
+                  </div>
                 </div>
-              )}
-              {selected.observacao && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Observação</p>
-                  <p className="text-sm text-foreground">{selected.observacao}</p>
+                <div className="space-y-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Clock className="h-3.5 w-3.5" /> Datas
+                  </h4>
+                  <div className="space-y-3">
+                    <DetailRow label="Vencimento" value={fmtDate(selected.vencimento)} />
+                    <DetailRow label="Pagamento" value={fmtDate(selected.data_pagamento)} />
+                    <DetailRow label="Emissão" value={fmtDate((selected as any).data_da_emissao)} />
+                  </div>
                 </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Tag className="h-3.5 w-3.5" /> Classificação
+                  </h4>
+                  <div className="space-y-3">
+                    <DetailRow label="Categoria" value={getCategoriaNome(selected.categoria)} />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <DollarSign className="h-3.5 w-3.5" /> Financeiro
+                  </h4>
+                  <div className="space-y-3">
+                    <DetailRow label="Valor" value={fmt(selected.valor || 0)} highlight />
+                    <DetailRow label="Status" value={selected.status} />
+                  </div>
+                </div>
+              </div>
+
+              {(selected.descricao || selected.observacao) && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    {selected.descricao && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Descrição</p>
+                        <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">{selected.descricao}</p>
+                      </div>
+                    )}
+                    {selected.observacao && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Observação</p>
+                        <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">{selected.observacao}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
+
               {selected.arquivo && (
-                <Button variant="outline" size="sm" asChild>
-                  <a href={selected.arquivo} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3 w-3 mr-2" /> Ver Arquivo Anexo
+                <Button variant="outline" size="sm" asChild className="gap-2">
+                  <a href={selected.arquivo.startsWith("//") ? `https:${selected.arquivo}` : selected.arquivo} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" /> Ver Arquivo Anexo
                   </a>
                 </Button>
               )}
@@ -308,17 +522,26 @@ const ContasPagar = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Report dialog */}
+      <ReportDialog
+        open={showReport}
+        onOpenChange={setShowReport}
+        contas={filtered}
+        fornecedorMap={fornecedorMap}
+        categoriaMap={categoriaMap}
+        getFornecedorNome={getFornecedorNome}
+        getCategoriaNome={getCategoriaNome}
+      />
     </DashboardLayout>
   );
 };
 
-function Detail({ label, value, badge, highlight }: { label: string; value?: string; badge?: boolean; highlight?: boolean }) {
+function DetailRow({ label, value, highlight }: { label: string; value?: string; highlight?: boolean }) {
   return (
-    <div>
-      <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
-      {badge ? statusBadge(value) : (
-        <p className={`text-sm ${highlight ? "font-bold text-foreground" : "text-foreground"}`}>{value || "—"}</p>
-      )}
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className={cn("text-sm text-right", highlight ? "font-bold text-foreground" : "text-foreground")}>{value || "—"}</span>
     </div>
   );
 }
