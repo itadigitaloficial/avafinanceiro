@@ -4,6 +4,8 @@ export interface ContaPagar {
   numero_documento?: string;
   fornecedor?: string;
   fornecedor_id?: string;
+  beneficiario?: string;
+  beneficiario_id?: string;
   categoria?: string;
   valor?: number;
   vencimento?: string;
@@ -43,6 +45,54 @@ export interface Empresa {
   "Endereco cidade"?: string;
   "Endereco uf"?: string;
   "Endereco cep"?: string;
+  "Created Date"?: string;
+  "Modified Date"?: string;
+}
+
+export interface Fornecedor {
+  _id: string;
+  nome_razao_social?: string;
+  nome_fantasia?: string;
+  nome?: string;
+  cnpj?: string;
+  documento?: string;
+  email?: string;
+  telefone?: string;
+  contato_nome?: string;
+  contato_telefone?: string;
+  endereco?: string;
+  endereco_numero?: string;
+  endereco_complemento?: string;
+  endereco_bairro?: string;
+  endereco_cep?: string;
+  endereco_uf?: string;
+  cidade?: string;
+  pais?: string;
+  empresa?: string;
+  natureza_juridica?: string;
+  capital_social?: string;
+  cadastrado_por?: string;
+  ID?: string;
+  "Created Date"?: string;
+  "Modified Date"?: string;
+  "Created By"?: string;
+}
+
+export interface Beneficiario {
+  _id: string;
+  nome_razao_social?: string;
+  nome_fantasia?: string;
+  nome?: string;
+  cnpj?: string;
+  documento?: string;
+  email?: string;
+  telefone?: string;
+  empresa?: string;
+  banco?: string;
+  agencia?: string;
+  conta?: string;
+  tipo_conta?: string;
+  pix?: string;
   "Created Date"?: string;
   "Modified Date"?: string;
 }

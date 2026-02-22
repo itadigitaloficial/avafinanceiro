@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, LogOut, UserCircle } from "lucide-react";
+import { LayoutDashboard, FileText, LogOut, UserCircle, Building2, Users } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,8 @@ import {
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Contas a Pagar", url: "/contas", icon: FileText },
+  { title: "Fornecedores", url: "/fornecedores", icon: Building2 },
+  { title: "Beneficiários", url: "/beneficiarios", icon: Users },
   { title: "Perfil", url: "/perfil", icon: UserCircle },
 ];
 
