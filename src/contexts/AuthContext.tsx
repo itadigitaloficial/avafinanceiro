@@ -12,7 +12,7 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const useAuth = () => useContext(AuthContext);
 
-const LOGIN_URL = "https://n8n.itadigital.com.br/webhook/ibesg-user";
+const LOGIN_URL = "https://n8n.itadigital.com.br/webhook/ava-login";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(() => {
