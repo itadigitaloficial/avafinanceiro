@@ -59,6 +59,8 @@ const ContasPagar = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoriaFilter, setCategoriaFilter] = useState("all");
   const [fornecedorFilter, setFornecedorFilter] = useState("all");
+  const [beneficiarioFilter, setBeneficiarioFilter] = useState("all");
+  const [formaPagamentoFilter, setFormaPagamentoFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [selected, setSelected] = useState<ContaPagar | null>(null);
@@ -149,6 +151,20 @@ const ContasPagar = () => {
     return Array.from(ids).map((id) => ({ id, nome: categoriaMap[id] || id })).sort((a, b) => a.nome.localeCompare(b.nome));
   }, [contas, categoriaMap]);
 
+  const uniqueBeneficiarios = useMemo(() => {
+    if (!contas) return [];
+    const ids = new Set<string>();
+    contas.forEach((c) => { if (c.beneficiario) ids.add(c.beneficiario); });
+    return Array.from(ids).map((id) => ({ id, nome: beneficiarioMap[id] || id })).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [contas, beneficiarioMap]);
+
+  const uniqueFormasPagamento = useMemo(() => {
+    if (!contas) return [];
+    const ids = new Set<string>();
+    contas.forEach((c) => { if (c.forma_pagamento) ids.add(c.forma_pagamento); });
+    return Array.from(ids).map((id) => ({ id, nome: formaPagamentoMap[id] || id })).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [contas, formaPagamentoMap]);
+
   const filtered = useMemo(() => {
     if (!contas) return [];
     let list = [...contas];
@@ -171,6 +187,8 @@ const ContasPagar = () => {
     if (statusFilter !== "all") list = list.filter((c) => c.status?.toLowerCase() === statusFilter);
     if (categoriaFilter !== "all") list = list.filter((c) => c.categoria === categoriaFilter);
     if (fornecedorFilter !== "all") list = list.filter((c) => (c.fornecedor || c.fornecedor_id) === fornecedorFilter);
+    if (beneficiarioFilter !== "all") list = list.filter((c) => c.beneficiario === beneficiarioFilter);
+    if (formaPagamentoFilter !== "all") list = list.filter((c) => c.forma_pagamento === formaPagamentoFilter);
 
     if (dateFrom) {
       list = list.filter((c) => {
@@ -207,12 +225,14 @@ const ContasPagar = () => {
 
   const resetPage = () => setPage(1);
   const handleSearch = (v: string) => { setSearch(v); resetPage(); };
-  const activeFilters = [statusFilter !== "all", categoriaFilter !== "all", fornecedorFilter !== "all", !!dateFrom, !!dateTo].filter(Boolean).length;
+  const activeFilters = [statusFilter !== "all", categoriaFilter !== "all", fornecedorFilter !== "all", beneficiarioFilter !== "all", formaPagamentoFilter !== "all", !!dateFrom, !!dateTo].filter(Boolean).length;
 
   const clearFilters = () => {
     setStatusFilter("all");
     setCategoriaFilter("all");
     setFornecedorFilter("all");
+    setBeneficiarioFilter("all");
+    setFormaPagamentoFilter("all");
     setDateFrom(undefined);
     setDateTo(undefined);
     setSearch("");
@@ -311,71 +331,99 @@ const ContasPagar = () => {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="bg-card rounded-xl border border-border p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Status</label>
-                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); resetPage(); }}>
-                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="pago">Pago</SelectItem>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="aberto">Aberto</SelectItem>
-                      <SelectItem value="vencido">Vencido</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Status</label>
+                    <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); resetPage(); }}>
+                      <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="pago">Pago</SelectItem>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="aberto">Aberto</SelectItem>
+                        <SelectItem value="vencido">Vencido</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Categoria</label>
+                    <Select value={categoriaFilter} onValueChange={(v) => { setCategoriaFilter(v); resetPage(); }}>
+                      <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {uniqueCategorias.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Fornecedor</label>
+                    <Select value={fornecedorFilter} onValueChange={(v) => { setFornecedorFilter(v); resetPage(); }}>
+                      <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {uniqueFornecedores.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Beneficiário</label>
+                    <Select value={beneficiarioFilter} onValueChange={(v) => { setBeneficiarioFilter(v); resetPage(); }}>
+                      <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {uniqueBeneficiarios.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Categoria</label>
-                  <Select value={categoriaFilter} onValueChange={(v) => { setCategoriaFilter(v); resetPage(); }}>
-                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {uniqueCategorias.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Fornecedor</label>
-                  <Select value={fornecedorFilter} onValueChange={(v) => { setFornecedorFilter(v); resetPage(); }}>
-                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {uniqueFornecedores.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Data Início</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-background", !dateFrom && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Selecionar"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d); resetPage(); }} initialFocus className="p-3 pointer-events-auto" />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Data Fim</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-background", !dateTo && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateTo ? format(dateTo, "dd/MM/yyyy") : "Selecionar"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d); resetPage(); }} initialFocus className="p-3 pointer-events-auto" />
-                    </PopoverContent>
-                  </Popover>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Forma de Pagamento</label>
+                    <Select value={formaPagamentoFilter} onValueChange={(v) => { setFormaPagamentoFilter(v); resetPage(); }}>
+                      <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {uniqueFormasPagamento.map((fp) => (
+                          <SelectItem key={fp.id} value={fp.id}>{fp.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Data Início</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-background", !dateFrom && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Selecionar"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d); resetPage(); }} initialFocus className="p-3 pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Data Fim</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-background", !dateTo && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateTo ? format(dateTo, "dd/MM/yyyy") : "Selecionar"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d); resetPage(); }} initialFocus className="p-3 pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -584,8 +632,14 @@ const ContasPagar = () => {
         contas={filtered}
         fornecedorMap={fornecedorMap}
         categoriaMap={categoriaMap}
+        beneficiarioMap={beneficiarioMap}
+        contaBancariaMap={contaBancariaMap}
+        formaPagamentoMap={formaPagamentoMap}
         getFornecedorNome={getFornecedorNome}
         getCategoriaNome={getCategoriaNome}
+        getBeneficiarioNome={getBeneficiarioNome}
+        getContaBancariaNome={getContaBancariaNome}
+        getFormaPagamentoNome={getFormaPagamentoNome}
       />
     </DashboardLayout>
   );
