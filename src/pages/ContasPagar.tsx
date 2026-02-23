@@ -593,7 +593,34 @@ const ContasPagar = () => {
                 </div>
               </div>
 
-              {(selected.descricao || selected.observacao) && (
+              {/* Valores adicionais */}
+              {(selected.valor_com_desconto || selected.valor_total_abastecimento) && (
+                <>
+                  <Separator />
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <DollarSign className="h-3.5 w-3.5" /> Valores Adicionais
+                    </h4>
+                    <div className="space-y-3">
+                      {selected.valor_com_desconto != null && <DetailRow label="Valor com Desconto" value={fmt(selected.valor_com_desconto)} highlight />}
+                      {selected.valor_total_abastecimento != null && <DetailRow label="Valor Total Abastecimento" value={fmt(selected.valor_total_abastecimento)} highlight />}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Ocorrência */}
+              {selected.ocorrencia && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">Ocorrência</p>
+                    <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">{selected.ocorrencia}</p>
+                  </div>
+                </>
+              )}
+
+              {(selected.descricao || selected.observacao || selected.notas) && (
                 <>
                   <Separator />
                   <div className="space-y-3">
@@ -609,17 +636,47 @@ const ContasPagar = () => {
                         <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">{selected.observacao}</p>
                       </div>
                     )}
+                    {selected.notas && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Notas</p>
+                        <p className="text-sm text-foreground bg-muted/50 rounded-lg p-3">{selected.notas}</p>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
 
-              {selected.arquivo && (
-                <Button variant="outline" size="sm" asChild className="gap-2">
-                  <a href={selected.arquivo.startsWith("//") ? `https:${selected.arquivo}` : selected.arquivo} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5" /> Ver Arquivo Anexo
-                  </a>
-                </Button>
-              )}
+              {/* Anexos */}
+              <div className="flex flex-wrap gap-2">
+                {selected.arquivo && (
+                  <Button variant="outline" size="sm" asChild className="gap-2">
+                    <a href={selected.arquivo.startsWith("//") ? `https:${selected.arquivo}` : selected.arquivo} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" /> Arquivo
+                    </a>
+                  </Button>
+                )}
+                {selected.comprovante && (
+                  <Button variant="outline" size="sm" asChild className="gap-2">
+                    <a href={selected.comprovante.startsWith("//") ? `https:${selected.comprovante}` : selected.comprovante} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" /> Comprovante
+                    </a>
+                  </Button>
+                )}
+                {selected.doc && (
+                  <Button variant="outline" size="sm" asChild className="gap-2">
+                    <a href={selected.doc.startsWith("//") ? `https:${selected.doc}` : selected.doc} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" /> Documento
+                    </a>
+                  </Button>
+                )}
+                {selected.anexos_complementares && (
+                  <Button variant="outline" size="sm" asChild className="gap-2">
+                    <a href={selected.anexos_complementares.startsWith("//") ? `https:${selected.anexos_complementares}` : selected.anexos_complementares} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" /> Anexos Complementares
+                    </a>
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
