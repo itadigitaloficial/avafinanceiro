@@ -217,7 +217,7 @@ const ContasPagar = () => {
       );
     }
     return list;
-  }, [contas, search, statusFilter, categoriaFilter, fornecedorFilter, dateFrom, dateTo, fornecedorMap, categoriaMap, beneficiarioMap]);
+  }, [contas, search, statusFilter, categoriaFilter, fornecedorFilter, beneficiarioFilter, formaPagamentoFilter, dateFrom, dateTo, fornecedorMap, categoriaMap, beneficiarioMap, formaPagamentoMap]);
 
   const totalValorFiltered = useMemo(() => filtered.reduce((s, c) => s + (c.valor || 0), 0), [filtered]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { ContaPagar } from "@/types/conta";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -180,14 +181,8 @@ export function ReportDialog({
       const context = buildAIContext();
       const userMessage = aiPrompt.trim() || "Analise os dados financeiros de contas a pagar e gere um relatório inteligente com insights, tendências, alertas e recomendações.";
 
-      const response = await fetch("https://api.deepseek.com/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${(window as any).__DEEPSEEK_API_KEY || ""}`,
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("deepseek-proxy", {
+        body: {
           messages: [
             {
               role: "system",
@@ -207,16 +202,15 @@ Use formatação markdown. Seja objetivo e profissional. Os valores estão em Re
           ],
           temperature: 0.7,
           max_tokens: 2000,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Erro na API (${response.status}): ${errText}`);
+      if (fnError) {
+        throw new Error(fnError.message || "Erro ao chamar a função de IA");
       }
 
-      const data = await response.json();
-      setAiAnalysis(data.choices?.[0]?.message?.content || "Nenhuma análise gerada.");
+      const data = fnData;
+      setAiAnalysis(data?.choices?.[0]?.message?.content || "Nenhuma análise gerada.");
     } catch (err: any) {
       setAiError(err.message || "Erro ao gerar análise com IA");
     } finally {
