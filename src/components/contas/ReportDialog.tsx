@@ -451,14 +451,17 @@ Use formatação markdown. Seja objetivo e profissional. Os valores estão em Re
 
               {aiAnalysis && (
                 <div className="ai-analysis bg-card border border-border rounded-lg p-4 prose prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed" dangerouslySetInnerHTML={{
-                    __html: aiAnalysis
-                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      .replace(/\n/g, '<br/>')
-                      .replace(/#{3}\s?(.*?)(<br\/>)/g, '<h3 class="text-sm font-bold mt-3 mb-1">$1</h3>')
-                      .replace(/#{2}\s?(.*?)(<br\/>)/g, '<h2 class="text-base font-bold mt-4 mb-1">$1</h2>')
-                      .replace(/#{1}\s?(.*?)(<br\/>)/g, '<h1 class="text-lg font-bold mt-4 mb-2">$1</h1>')
-                  }} />
+                  <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+                    {aiAnalysis
+                      .replace(/#{1,6}\s?/g, '')
+                      .replace(/\*\*(.*?)\*\*/g, '$1')
+                      .replace(/\*(.*?)\*/g, '$1')
+                      .replace(/---+/g, '')
+                      .replace(/- /g, '• ')
+                      .replace(/\n{3,}/g, '\n\n')
+                      .trim()
+                    }
+                  </div>
                 </div>
               )}
             </div>
@@ -552,7 +555,17 @@ Use formatação markdown. Seja objetivo e profissional. Os valores estão em Re
               {aiAnalysis && (
                 <div className="mt-6">
                   <h2 className="text-sm font-semibold text-foreground mb-3 border-b border-border pb-2">Análise Inteligente (IA)</h2>
-                  <div className="ai-analysis bg-muted/30 rounded-lg p-4 text-sm whitespace-pre-wrap">{aiAnalysis}</div>
+                  <div className="ai-analysis bg-muted/30 rounded-lg p-4 text-sm whitespace-pre-wrap">
+                    {aiAnalysis
+                      .replace(/#{1,6}\s?/g, '')
+                      .replace(/\*\*(.*?)\*\*/g, '$1')
+                      .replace(/\*(.*?)\*/g, '$1')
+                      .replace(/---+/g, '')
+                      .replace(/- /g, '• ')
+                      .replace(/\n{3,}/g, '\n\n')
+                      .trim()
+                    }
+                  </div>
                 </div>
               )}
             </div>

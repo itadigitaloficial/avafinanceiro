@@ -22,6 +22,13 @@ export interface ContaPagar {
   observacao?: string;
   conta_bancaria?: string;
   forma_pagamento?: string;
+  anexos_complementares?: string;
+  comprovante?: string;
+  doc?: string;
+  notas?: string;
+  valor_com_desconto?: number;
+  valor_total_abastecimento?: number;
+  ocorrencia?: string;
   "Created Date"?: string;
   "Modified Date"?: string;
   "Created By"?: string;
