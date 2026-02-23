@@ -3,9 +3,11 @@ import { KPICard } from "@/components/KPICard";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
 import { useCategorias } from "@/hooks/useCategorias";
+import { useContasBancarias } from "@/hooks/useContasBancarias";
+import { useFormasPagamento } from "@/hooks/useFormasPagamento";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, FileText, CheckCircle, AlertTriangle, TrendingUp, Clock, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
+import { FileText, CheckCircle, AlertTriangle, Clock, Landmark, CreditCard } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 
@@ -15,10 +17,22 @@ const CHART_COLORS = [
   "hsl(280,50%,50%)", "hsl(30,80%,50%)",
 ];
 
+const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtShort = (v: number) => {
+  if (v >= 1000000) return `R$ ${(v / 1000000).toFixed(1)}M`;
+  if (v >= 1000) return `R$ ${(v / 1000).toFixed(1)}K`;
+  return fmt(v);
+};
+
+const getVencimento = (c: any) => c.vencimento || c.venciamento;
+const getPagamento = (c: any) => c.data_pagamento || c.data_do_pagamento;
+
 const Dashboard = () => {
   const { data: contas, isLoading } = useContasPagar();
   const { data: fornecedores } = useFornecedores();
   const { data: categorias } = useCategorias();
+  const { data: contasBancarias } = useContasBancarias();
+  const { data: formasPagamento } = useFormasPagamento();
 
   const fornecedorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -31,6 +45,18 @@ const Dashboard = () => {
     categorias?.forEach((c) => { if (c._id) map[c._id] = c.categoria || c._id; });
     return map;
   }, [categorias]);
+
+  const contaBancariaMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    contasBancarias?.forEach((cb) => { if (cb._id) map[cb._id] = cb.nome || cb.banco || cb._id; });
+    return map;
+  }, [contasBancarias]);
+
+  const formaPagamentoMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    formasPagamento?.forEach((fp) => { if (fp._id) map[fp._id] = fp.forma_pagamento || fp.nome || fp._id; });
+    return map;
+  }, [formasPagamento]);
 
   const stats = useMemo(() => {
     if (!contas) return null;
@@ -45,8 +71,9 @@ const Dashboard = () => {
     const pendentesValor = pendentes.reduce((s, c) => s + (c.valor || 0), 0);
     const hoje = new Date();
     const vencidas = contas.filter((c) => {
-      if (!c.vencimento) return false;
-      return new Date(c.vencimento) < hoje && c.status?.toLowerCase() !== "pago";
+      const venc = getVencimento(c);
+      if (!venc) return false;
+      return new Date(venc) < hoje && c.status?.toLowerCase() !== "pago";
     });
     const vencidasValor = vencidas.reduce((s, c) => s + (c.valor || 0), 0);
     return { total, totalValor, pagas: pagas.length, pagasValor, pendentes: pendentes.length, pendentesValor, vencidas: vencidas.length, vencidasValor };
@@ -69,7 +96,7 @@ const Dashboard = () => {
     if (!contas) return [];
     const map: Record<string, { pago: number; pendente: number }> = {};
     contas.forEach((c) => {
-      const date = c.vencimento || c.data_pagamento;
+      const date = getVencimento(c) || getPagamento(c);
       if (!date) return;
       const d = new Date(date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -84,7 +111,6 @@ const Dashboard = () => {
         month: new Date(month + "-01").toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
         pago: Math.round(data.pago * 100) / 100,
         pendente: Math.round(data.pendente * 100) / 100,
-        total: Math.round((data.pago + data.pendente) * 100) / 100,
       }));
   }, [contas]);
 
@@ -102,6 +128,32 @@ const Dashboard = () => {
     }));
   }, [contas, fornecedorMap]);
 
+  const chartByFormaPagamento = useMemo(() => {
+    if (!contas) return [];
+    const map: Record<string, number> = {};
+    contas.forEach((c) => {
+      const fp = formaPagamentoMap[c.forma_pagamento || ""] || c.forma_pagamento || "Não informado";
+      map[fp] = (map[fp] || 0) + (c.valor || 0);
+    });
+    return Object.entries(map)
+      .map(([name, value]) => ({ name: name.length > 20 ? name.slice(0, 20) + "…" : name, value: Math.round(value * 100) / 100 }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [contas, formaPagamentoMap]);
+
+  const chartByContaBancaria = useMemo(() => {
+    if (!contas) return [];
+    const map: Record<string, number> = {};
+    contas.forEach((c) => {
+      const cb = contaBancariaMap[c.conta_bancaria || ""] || c.conta_bancaria || "Não informado";
+      map[cb] = (map[cb] || 0) + (c.valor || 0);
+    });
+    return Object.entries(map)
+      .map(([name, value]) => ({ name: name.length > 20 ? name.slice(0, 20) + "…" : name, value: Math.round(value * 100) / 100 }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [contas, contaBancariaMap]);
+
   const recentContas = useMemo(() => {
     if (!contas) return [];
     return [...contas]
@@ -112,13 +164,6 @@ const Dashboard = () => {
       })
       .slice(0, 5);
   }, [contas]);
-
-  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const fmtShort = (v: number) => {
-    if (v >= 1000000) return `R$ ${(v / 1000000).toFixed(1)}M`;
-    if (v >= 1000) return `R$ ${(v / 1000).toFixed(1)}K`;
-    return fmt(v);
-  };
 
   if (isLoading) {
     return (
@@ -146,40 +191,10 @@ const Dashboard = () => {
 
         {/* KPIs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard
-            title="Total de Contas"
-            value={String(stats?.total || 0)}
-            subtitle={fmtShort(stats?.totalValor || 0)}
-            icon={FileText}
-            color="hsl(215,65%,40%)"
-            delay={0}
-          />
-          <KPICard
-            title="Pagas"
-            value={String(stats?.pagas || 0)}
-            subtitle={fmtShort(stats?.pagasValor || 0)}
-            icon={CheckCircle}
-            color="hsl(160,45%,40%)"
-            delay={0.1}
-            trend="up"
-          />
-          <KPICard
-            title="Pendentes"
-            value={String(stats?.pendentes || 0)}
-            subtitle={fmtShort(stats?.pendentesValor || 0)}
-            icon={Clock}
-            color="hsl(38,92%,50%)"
-            delay={0.2}
-          />
-          <KPICard
-            title="Vencidas"
-            value={String(stats?.vencidas || 0)}
-            subtitle={fmtShort(stats?.vencidasValor || 0)}
-            icon={AlertTriangle}
-            color="hsl(0,72%,51%)"
-            delay={0.3}
-            trend={stats?.vencidas ? "down" : undefined}
-          />
+          <KPICard title="Total de Contas" value={String(stats?.total || 0)} subtitle={fmtShort(stats?.totalValor || 0)} icon={FileText} color="hsl(215,65%,40%)" delay={0} />
+          <KPICard title="Pagas" value={String(stats?.pagas || 0)} subtitle={fmtShort(stats?.pagasValor || 0)} icon={CheckCircle} color="hsl(160,45%,40%)" delay={0.1} trend="up" />
+          <KPICard title="Pendentes" value={String(stats?.pendentes || 0)} subtitle={fmtShort(stats?.pendentesValor || 0)} icon={Clock} color="hsl(38,92%,50%)" delay={0.2} />
+          <KPICard title="Vencidas" value={String(stats?.vencidas || 0)} subtitle={fmtShort(stats?.vencidasValor || 0)} icon={AlertTriangle} color="hsl(0,72%,51%)" delay={0.3} trend={stats?.vencidas ? "down" : undefined} />
         </div>
 
         {/* Charts row 1 */}
@@ -198,10 +213,7 @@ const Dashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(38,20%,88%)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="hsl(215,15%,50%)" axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10 }} stroke="hsl(215,15%,50%)" axisLine={false} tickLine={false} tickFormatter={(v) => fmtShort(v)} />
-                <Tooltip
-                  formatter={(v: number, name: string) => [fmt(v), name === "pago" ? "Pago" : "Pendente"]}
-                  contentStyle={{ borderRadius: 12, border: "1px solid hsl(38,20%,88%)", fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
-                />
+                <Tooltip formatter={(v: number, name: string) => [fmt(v), name === "pago" ? "Pago" : "Pendente"]} contentStyle={{ borderRadius: 12, border: "1px solid hsl(38,20%,88%)", fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
                 <Bar dataKey="pago" radius={[4, 4, 0, 0]} fill="hsl(160,45%,40%)" stackId="a" />
                 <Bar dataKey="pendente" radius={[4, 4, 0, 0]} fill="hsl(38,92%,50%)" stackId="a" />
               </BarChart>
@@ -223,9 +235,62 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
-        {/* Row 2: Top fornecedores + Recent */}
+        {/* Row 2: Forma Pagamento + Conta Bancária */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+            className="bg-card rounded-xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-muted-foreground" /> Por Forma de Pagamento
+            </h3>
+            <div className="space-y-3">
+              {chartByFormaPagamento.map((item, i) => {
+                const max = chartByFormaPagamento[0]?.value || 1;
+                const pct = (item.value / max) * 100;
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-foreground font-medium truncate max-w-[60%]">{item.name}</span>
+                      <span className="text-muted-foreground tabular-nums text-xs">{fmt(item.value)}</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: 0.5 + i * 0.1, duration: 0.6 }} className="h-full rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                    </div>
+                  </div>
+                );
+              })}
+              {chartByFormaPagamento.length === 0 && <p className="text-xs text-muted-foreground">Nenhum dado disponível</p>}
+            </div>
+          </motion.div>
+
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+            className="bg-card rounded-xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Landmark className="h-4 w-4 text-muted-foreground" /> Por Conta Bancária
+            </h3>
+            <div className="space-y-3">
+              {chartByContaBancaria.map((item, i) => {
+                const max = chartByContaBancaria[0]?.value || 1;
+                const pct = (item.value / max) * 100;
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-foreground font-medium truncate max-w-[60%]">{item.name}</span>
+                      <span className="text-muted-foreground tabular-nums text-xs">{fmt(item.value)}</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: 0.55 + i * 0.1, duration: 0.6 }} className="h-full rounded-full" style={{ background: CHART_COLORS[(i + 3) % CHART_COLORS.length] }} />
+                    </div>
+                  </div>
+                );
+              })}
+              {chartByContaBancaria.length === 0 && <p className="text-xs text-muted-foreground">Nenhum dado disponível</p>}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Row 3: Top fornecedores + Recent */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}
             className="bg-card rounded-xl border border-border p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4">Top 5 Fornecedores</h3>
             <div className="space-y-3">
@@ -239,13 +304,7 @@ const Dashboard = () => {
                       <span className="text-muted-foreground tabular-nums text-xs">{fmt(f.value)}</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ delay: 0.6 + i * 0.1, duration: 0.6 }}
-                        className="h-full rounded-full"
-                        style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
-                      />
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: 0.6 + i * 0.1, duration: 0.6 }} className="h-full rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
                     </div>
                   </div>
                 );
@@ -258,10 +317,8 @@ const Dashboard = () => {
             <h3 className="text-sm font-semibold text-foreground mb-4">Últimas Contas Cadastradas</h3>
             <div className="space-y-3">
               {recentContas.map((c, i) => {
-                const fornNome = (() => {
-                  const id = c.fornecedor || c.fornecedor_id || "";
-                  return fornecedorMap[id] || id || "—";
-                })();
+                const id = c.fornecedor || c.fornecedor_id || "";
+                const fornNome = fornecedorMap[id] || id || "—";
                 return (
                   <div key={i} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                     <div className="min-w-0 flex-1">
