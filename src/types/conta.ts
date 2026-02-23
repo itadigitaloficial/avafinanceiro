@@ -1,4 +1,5 @@
 export interface ContaPagar {
+  _id?: string;
   id?: string;
   uniq_id?: string;
   numero_documento?: string;
@@ -9,13 +10,21 @@ export interface ContaPagar {
   categoria?: string;
   valor?: number;
   vencimento?: string;
+  venciamento?: string;
   data_pagamento?: string;
+  data_do_pagamento?: string;
+  data_da_emissao?: string;
   status?: string;
   empresa?: string;
   empresa_id?: string;
   descricao?: string;
   arquivo?: string;
   observacao?: string;
+  conta_bancaria?: string;
+  forma_pagamento?: string;
+  "Created Date"?: string;
+  "Modified Date"?: string;
+  "Created By"?: string;
 }
 
 export interface AuthUser {

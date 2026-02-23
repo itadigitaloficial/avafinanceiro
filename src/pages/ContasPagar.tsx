@@ -5,6 +5,9 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
 import { useCategorias } from "@/hooks/useCategorias";
+import { useBeneficiarios } from "@/hooks/useBeneficiarios";
+import { useContasBancarias } from "@/hooks/useContasBancarias";
+import { useFormasPagamento } from "@/hooks/useFormasPagamento";
 import { ContaPagar } from "@/types/conta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +21,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Search, FileText, ExternalLink, CalendarIcon, Filter, X, Download,
-  DollarSign, Clock, Building2, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  DollarSign, Clock, Building2, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  Landmark, CreditCard, Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -31,6 +35,9 @@ const fmtDate = (d?: string) => {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("pt-BR");
 };
+
+const getVencimento = (c: ContaPagar) => c.vencimento || c.venciamento;
+const getPagamento = (c: ContaPagar) => c.data_pagamento || c.data_do_pagamento;
 
 function statusBadge(status?: string, size: "sm" | "md" = "sm") {
   const s = status?.toLowerCase() || "";
@@ -45,6 +52,9 @@ const ContasPagar = () => {
   const { data: contas, isLoading, error } = useContasPagar();
   const { data: fornecedores } = useFornecedores();
   const { data: categorias } = useCategorias();
+  const { data: beneficiarios } = useBeneficiarios();
+  const { data: contasBancarias } = useContasBancarias();
+  const { data: formasPagamento } = useFormasPagamento();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoriaFilter, setCategoriaFilter] = useState("all");
@@ -72,6 +82,30 @@ const ContasPagar = () => {
     return map;
   }, [categorias]);
 
+  const beneficiarioMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    beneficiarios?.forEach((b) => {
+      if (b._id) map[b._id] = b.nome_razao_social || b.nome_fantasia || b.nome || b._id;
+    });
+    return map;
+  }, [beneficiarios]);
+
+  const contaBancariaMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    contasBancarias?.forEach((cb) => {
+      if (cb._id) map[cb._id] = cb.nome || cb.banco || cb._id;
+    });
+    return map;
+  }, [contasBancarias]);
+
+  const formaPagamentoMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    formasPagamento?.forEach((fp) => {
+      if (fp._id) map[fp._id] = fp.forma_pagamento || fp.nome || fp._id;
+    });
+    return map;
+  }, [formasPagamento]);
+
   const getCategoriaNome = (id?: string) => {
     if (!id) return "—";
     return categoriaMap[id] || id;
@@ -83,7 +117,21 @@ const ContasPagar = () => {
     return conta.fornecedor || conta.fornecedor_id || "—";
   };
 
-  // Unique fornecedores/categorias for filter dropdowns
+  const getBeneficiarioNome = (id?: string) => {
+    if (!id) return "—";
+    return beneficiarioMap[id] || id;
+  };
+
+  const getContaBancariaNome = (id?: string) => {
+    if (!id) return "—";
+    return contaBancariaMap[id] || id;
+  };
+
+  const getFormaPagamentoNome = (id?: string) => {
+    if (!id) return "—";
+    return formaPagamentoMap[id] || id;
+  };
+
   const uniqueFornecedores = useMemo(() => {
     if (!contas) return [];
     const ids = new Set<string>();
@@ -106,14 +154,15 @@ const ContasPagar = () => {
     let list = [...contas];
 
     list.sort((a, b) => {
-      const da = (a as any)["Created Date"] || a.vencimento || "";
-      const db = (b as any)["Created Date"] || b.vencimento || "";
+      const da = a["Created Date"] || getVencimento(a) || "";
+      const db = b["Created Date"] || getVencimento(b) || "";
       return db.localeCompare(da);
     });
 
     const hoje = new Date();
     list = list.map((c) => {
-      if (c.vencimento && new Date(c.vencimento) < hoje && c.status?.toLowerCase() !== "pago") {
+      const venc = getVencimento(c);
+      if (venc && new Date(venc) < hoje && c.status?.toLowerCase() !== "pago") {
         return { ...c, status: "Vencido" };
       }
       return c;
@@ -125,13 +174,13 @@ const ContasPagar = () => {
 
     if (dateFrom) {
       list = list.filter((c) => {
-        const d = c.vencimento || c.data_pagamento;
+        const d = getVencimento(c) || getPagamento(c);
         return d && new Date(d) >= dateFrom;
       });
     }
     if (dateTo) {
       list = list.filter((c) => {
-        const d = c.vencimento || c.data_pagamento;
+        const d = getVencimento(c) || getPagamento(c);
         return d && new Date(d) <= dateTo;
       });
     }
@@ -145,11 +194,12 @@ const ContasPagar = () => {
           c.numero_documento?.toLowerCase().includes(q) ||
           getCategoriaNome(c.categoria).toLowerCase().includes(q) ||
           c.empresa?.toLowerCase().includes(q) ||
-          c.descricao?.toLowerCase().includes(q)
+          c.descricao?.toLowerCase().includes(q) ||
+          getBeneficiarioNome(c.beneficiario).toLowerCase().includes(q)
       );
     }
     return list;
-  }, [contas, search, statusFilter, categoriaFilter, fornecedorFilter, dateFrom, dateTo, fornecedorMap, categoriaMap]);
+  }, [contas, search, statusFilter, categoriaFilter, fornecedorFilter, dateFrom, dateTo, fornecedorMap, categoriaMap, beneficiarioMap]);
 
   const totalValorFiltered = useMemo(() => filtered.reduce((s, c) => s + (c.valor || 0), 0), [filtered]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -344,6 +394,7 @@ const ContasPagar = () => {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">Documento</TableHead>
                   <TableHead className="font-semibold">Fornecedor</TableHead>
+                  <TableHead className="font-semibold">Beneficiário</TableHead>
                   <TableHead className="font-semibold">Categoria</TableHead>
                   <TableHead className="text-right font-semibold">Valor</TableHead>
                   <TableHead className="font-semibold">Vencimento</TableHead>
@@ -354,7 +405,7 @@ const ContasPagar = () => {
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-16 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-16 text-muted-foreground">
                       <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
                       Nenhuma conta encontrada
                     </TableCell>
@@ -362,16 +413,17 @@ const ContasPagar = () => {
                 ) : (
                   paged.map((conta, i) => (
                     <TableRow
-                      key={conta.uniq_id || conta.id || i}
+                      key={conta._id || conta.uniq_id || conta.id || i}
                       className="cursor-pointer hover:bg-muted/30 transition-colors group"
                       onClick={() => setSelected(conta)}
                     >
                       <TableCell className="font-medium text-sm">{conta.numero_documento || "—"}</TableCell>
-                      <TableCell className="text-sm max-w-[200px] truncate">{getFornecedorNome(conta)}</TableCell>
+                      <TableCell className="text-sm max-w-[180px] truncate">{getFornecedorNome(conta)}</TableCell>
+                      <TableCell className="text-sm max-w-[150px] truncate">{getBeneficiarioNome(conta.beneficiario)}</TableCell>
                       <TableCell className="text-sm max-w-[150px] truncate">{getCategoriaNome(conta.categoria)}</TableCell>
                       <TableCell className="text-right font-semibold text-sm tabular-nums">{fmt(conta.valor || 0)}</TableCell>
-                      <TableCell className="text-sm tabular-nums">{fmtDate(conta.vencimento)}</TableCell>
-                      <TableCell className="text-sm tabular-nums">{fmtDate(conta.data_pagamento)}</TableCell>
+                      <TableCell className="text-sm tabular-nums">{fmtDate(getVencimento(conta))}</TableCell>
+                      <TableCell className="text-sm tabular-nums">{fmtDate(getPagamento(conta))}</TableCell>
                       <TableCell>{statusBadge(conta.status)}</TableCell>
                     </TableRow>
                   ))
@@ -384,7 +436,7 @@ const ContasPagar = () => {
         {/* Pagination */}
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            Mostrando {((page - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
+            Mostrando {filtered.length > 0 ? ((page - 1) * ITEMS_PER_PAGE) + 1 : 0}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
           </p>
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
@@ -423,7 +475,7 @@ const ContasPagar = () => {
         </div>
       </div>
 
-      {/* Detail modal - Professional */}
+      {/* Detail modal */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden">
           <div className="bg-gradient-to-r from-primary/10 to-accent/10 px-6 pt-6 pb-4">
@@ -445,7 +497,6 @@ const ContasPagar = () => {
           </div>
           {selected && (
             <div className="px-6 pb-6 space-y-5">
-              {/* Info sections */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4">
                 <div className="space-y-4">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -454,6 +505,7 @@ const ContasPagar = () => {
                   <div className="space-y-3">
                     <DetailRow label="Documento" value={selected.numero_documento} />
                     <DetailRow label="Fornecedor" value={getFornecedorNome(selected)} />
+                    <DetailRow label="Beneficiário" value={getBeneficiarioNome(selected.beneficiario)} />
                     <DetailRow label="Empresa" value={selected.empresa} />
                   </div>
                 </div>
@@ -462,9 +514,9 @@ const ContasPagar = () => {
                     <Clock className="h-3.5 w-3.5" /> Datas
                   </h4>
                   <div className="space-y-3">
-                    <DetailRow label="Vencimento" value={fmtDate(selected.vencimento)} />
-                    <DetailRow label="Pagamento" value={fmtDate(selected.data_pagamento)} />
-                    <DetailRow label="Emissão" value={fmtDate((selected as any).data_da_emissao)} />
+                    <DetailRow label="Vencimento" value={fmtDate(getVencimento(selected))} />
+                    <DetailRow label="Pagamento" value={fmtDate(getPagamento(selected))} />
+                    <DetailRow label="Emissão" value={fmtDate(selected.data_da_emissao)} />
                   </div>
                 </div>
               </div>
@@ -487,6 +539,8 @@ const ContasPagar = () => {
                   <div className="space-y-3">
                     <DetailRow label="Valor" value={fmt(selected.valor || 0)} highlight />
                     <DetailRow label="Status" value={selected.status} />
+                    <DetailRow label="Conta Bancária" value={getContaBancariaNome(selected.conta_bancaria)} />
+                    <DetailRow label="Forma de Pagamento" value={getFormaPagamentoNome(selected.forma_pagamento)} />
                   </div>
                 </div>
               </div>
