@@ -12,6 +12,7 @@ import Fornecedores from "./pages/Fornecedores";
 import Beneficiarios from "./pages/Beneficiarios";
 import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
+import StripePage from "./pages/Stripe";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const AppRoutes = () => {
       <Route path="/fornecedores" element={<ProtectedRoute><Fornecedores /></ProtectedRoute>} />
       <Route path="/beneficiarios" element={<ProtectedRoute><Beneficiarios /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
+      <Route path="/stripe" element={<ProtectedRoute><StripePage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

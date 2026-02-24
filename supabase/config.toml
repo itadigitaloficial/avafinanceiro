@@ -1,1 +1,4 @@
 project_id = "yqpcjyhwsmfjmtctzqok"
+
+[functions.stripe-proxy]
+verify_jwt = false
