@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      stripe_keys: {
+        Row: {
+          created_at: string
+          created_by: string
+          empresa_id: string
+          id: string
+          stripe_publishable_key: string
+          stripe_secret_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          empresa_id: string
+          id?: string
+          stripe_publishable_key: string
+          stripe_secret_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          empresa_id?: string
+          id?: string
+          stripe_publishable_key?: string
+          stripe_secret_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

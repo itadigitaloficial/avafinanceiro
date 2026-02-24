@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, LogOut, UserCircle, Building2, Users } from "lucide-react";
+import { LayoutDashboard, FileText, LogOut, UserCircle, Building2, Users, CreditCard } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +19,7 @@ const menuItems = [
   { title: "Contas a Pagar", url: "/contas", icon: FileText },
   { title: "Fornecedores", url: "/fornecedores", icon: Building2 },
   { title: "Beneficiários", url: "/beneficiarios", icon: Users },
+  { title: "Stripe", url: "/stripe", icon: CreditCard },
   { title: "Perfil", url: "/perfil", icon: UserCircle },
 ];
 
