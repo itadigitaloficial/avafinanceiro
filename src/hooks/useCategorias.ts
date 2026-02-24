@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getCachedData, setCachedData } from "@/lib/queryCache";
 
 export interface Categoria {
   _id: string;
@@ -12,13 +13,17 @@ async function fetchCategorias(): Promise<Categoria[]> {
   const res = await fetch(API_URL);
   if (!res.ok) throw new Error("Erro ao carregar categorias");
   const data = await res.json();
-  return Array.isArray(data) ? data : [data];
+  const result = Array.isArray(data) ? data : [data];
+  setCachedData("categorias", result);
+  return result;
 }
 
 export function useCategorias() {
   return useQuery({
     queryKey: ["categorias"],
     queryFn: fetchCategorias,
-    staleTime: 60000,
+    initialData: getCachedData<Categoria[]>("categorias"),
+    staleTime: 300000,
+    gcTime: 600000,
   });
 }

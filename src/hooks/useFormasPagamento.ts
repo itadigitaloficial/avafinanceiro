@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getCachedData, setCachedData } from "@/lib/queryCache";
 
 export interface FormaPagamento {
   _id: string;
@@ -15,14 +16,18 @@ async function fetchFormasPagamento(): Promise<FormaPagamento[]> {
   const res = await fetch(API_URL);
   if (!res.ok) throw new Error("Erro ao carregar formas de pagamento");
   const data = await res.json();
-  return Array.isArray(data) ? data : [data];
+  const result = Array.isArray(data) ? data : [data];
+  setCachedData("formas-pagamento", result);
+  return result;
 }
 
 export function useFormasPagamento() {
   return useQuery({
     queryKey: ["formas-pagamento"],
     queryFn: fetchFormasPagamento,
-    staleTime: 60000,
+    initialData: getCachedData<FormaPagamento[]>("formas-pagamento"),
+    staleTime: 300000,
+    gcTime: 600000,
     retry: 1,
   });
 }
