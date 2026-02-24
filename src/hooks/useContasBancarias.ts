@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getCachedData, setCachedData } from "@/lib/queryCache";
 
 export interface ContaBancaria {
   _id: string;
@@ -17,14 +18,18 @@ async function fetchContasBancarias(): Promise<ContaBancaria[]> {
   const res = await fetch(API_URL);
   if (!res.ok) throw new Error("Erro ao carregar contas bancárias");
   const data = await res.json();
-  return Array.isArray(data) ? data : [data];
+  const result = Array.isArray(data) ? data : [data];
+  setCachedData("contas-bancarias", result);
+  return result;
 }
 
 export function useContasBancarias() {
   return useQuery({
     queryKey: ["contas-bancarias"],
     queryFn: fetchContasBancarias,
-    staleTime: 60000,
+    initialData: getCachedData<ContaBancaria[]>("contas-bancarias"),
+    staleTime: 300000,
+    gcTime: 600000,
     retry: 1,
   });
 }
