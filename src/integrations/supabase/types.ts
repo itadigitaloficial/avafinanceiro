@@ -14,6 +14,342 @@ export type Database = {
   }
   public: {
     Tables: {
+      beneficiarios: {
+        Row: {
+          _id: string
+          agencia: string | null
+          banco: string | null
+          cnpj: string | null
+          conta: string | null
+          created_date: string | null
+          documento: string | null
+          email: string | null
+          empresa: string | null
+          modified_date: string | null
+          nome: string | null
+          nome_fantasia: string | null
+          nome_razao_social: string | null
+          pix: string | null
+          telefone: string | null
+          tipo_conta: string | null
+        }
+        Insert: {
+          _id: string
+          agencia?: string | null
+          banco?: string | null
+          cnpj?: string | null
+          conta?: string | null
+          created_date?: string | null
+          documento?: string | null
+          email?: string | null
+          empresa?: string | null
+          modified_date?: string | null
+          nome?: string | null
+          nome_fantasia?: string | null
+          nome_razao_social?: string | null
+          pix?: string | null
+          telefone?: string | null
+          tipo_conta?: string | null
+        }
+        Update: {
+          _id?: string
+          agencia?: string | null
+          banco?: string | null
+          cnpj?: string | null
+          conta?: string | null
+          created_date?: string | null
+          documento?: string | null
+          email?: string | null
+          empresa?: string | null
+          modified_date?: string | null
+          nome?: string | null
+          nome_fantasia?: string | null
+          nome_razao_social?: string | null
+          pix?: string | null
+          telefone?: string | null
+          tipo_conta?: string | null
+        }
+        Relationships: []
+      }
+      categorias: {
+        Row: {
+          _id: string
+          categoria: string | null
+          created_date: string | null
+        }
+        Insert: {
+          _id: string
+          categoria?: string | null
+          created_date?: string | null
+        }
+        Update: {
+          _id?: string
+          categoria?: string | null
+          created_date?: string | null
+        }
+        Relationships: []
+      }
+      contas_pagar: {
+        Row: {
+          _id: string
+          anexos_complementares: string | null
+          arquivo: string | null
+          beneficiario: string | null
+          beneficiario_id: string | null
+          categoria: string | null
+          comprovante: string | null
+          conta_bancaria: string | null
+          created_by: string | null
+          created_date: string | null
+          data_da_emissao: string | null
+          data_do_pagamento: string | null
+          data_pagamento: string | null
+          descricao: string | null
+          doc: string | null
+          empresa: string | null
+          empresa_id: string | null
+          forma_pagamento: string | null
+          fornecedor: string | null
+          fornecedor_id: string | null
+          modified_date: string | null
+          notas: string | null
+          numero_documento: string | null
+          observacao: string | null
+          ocorrencia: string | null
+          status: string | null
+          uniq_id: string | null
+          valor: number | null
+          valor_com_desconto: number | null
+          valor_total_abastecimento: number | null
+          venciamento: string | null
+          vencimento: string | null
+        }
+        Insert: {
+          _id: string
+          anexos_complementares?: string | null
+          arquivo?: string | null
+          beneficiario?: string | null
+          beneficiario_id?: string | null
+          categoria?: string | null
+          comprovante?: string | null
+          conta_bancaria?: string | null
+          created_by?: string | null
+          created_date?: string | null
+          data_da_emissao?: string | null
+          data_do_pagamento?: string | null
+          data_pagamento?: string | null
+          descricao?: string | null
+          doc?: string | null
+          empresa?: string | null
+          empresa_id?: string | null
+          forma_pagamento?: string | null
+          fornecedor?: string | null
+          fornecedor_id?: string | null
+          modified_date?: string | null
+          notas?: string | null
+          numero_documento?: string | null
+          observacao?: string | null
+          ocorrencia?: string | null
+          status?: string | null
+          uniq_id?: string | null
+          valor?: number | null
+          valor_com_desconto?: number | null
+          valor_total_abastecimento?: number | null
+          venciamento?: string | null
+          vencimento?: string | null
+        }
+        Update: {
+          _id?: string
+          anexos_complementares?: string | null
+          arquivo?: string | null
+          beneficiario?: string | null
+          beneficiario_id?: string | null
+          categoria?: string | null
+          comprovante?: string | null
+          conta_bancaria?: string | null
+          created_by?: string | null
+          created_date?: string | null
+          data_da_emissao?: string | null
+          data_do_pagamento?: string | null
+          data_pagamento?: string | null
+          descricao?: string | null
+          doc?: string | null
+          empresa?: string | null
+          empresa_id?: string | null
+          forma_pagamento?: string | null
+          fornecedor?: string | null
+          fornecedor_id?: string | null
+          modified_date?: string | null
+          notas?: string | null
+          numero_documento?: string | null
+          observacao?: string | null
+          ocorrencia?: string | null
+          status?: string | null
+          uniq_id?: string | null
+          valor?: number | null
+          valor_com_desconto?: number | null
+          valor_total_abastecimento?: number | null
+          venciamento?: string | null
+          vencimento?: string | null
+        }
+        Relationships: []
+      }
+      empresas: {
+        Row: {
+          _id: string
+          centro_de_custo: string[] | null
+          cnpj: string | null
+          created_date: string | null
+          editado: boolean | null
+          email: string | null
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_cidade: string | null
+          endereco_numero: string | null
+          endereco_rua: string | null
+          endereco_uf: string | null
+          logo: string | null
+          modified_date: string | null
+          razao_social: string | null
+          slug: string | null
+          telefone: string | null
+          usuario: string | null
+          website: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          _id: string
+          centro_de_custo?: string[] | null
+          cnpj?: string | null
+          created_date?: string | null
+          editado?: boolean | null
+          email?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_numero?: string | null
+          endereco_rua?: string | null
+          endereco_uf?: string | null
+          logo?: string | null
+          modified_date?: string | null
+          razao_social?: string | null
+          slug?: string | null
+          telefone?: string | null
+          usuario?: string | null
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          _id?: string
+          centro_de_custo?: string[] | null
+          cnpj?: string | null
+          created_date?: string | null
+          editado?: boolean | null
+          email?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_numero?: string | null
+          endereco_rua?: string | null
+          endereco_uf?: string | null
+          logo?: string | null
+          modified_date?: string | null
+          razao_social?: string | null
+          slug?: string | null
+          telefone?: string | null
+          usuario?: string | null
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      fornecedores: {
+        Row: {
+          _id: string
+          cadastrado_por: string | null
+          capital_social: string | null
+          cidade: string | null
+          cnpj: string | null
+          contato_nome: string | null
+          contato_telefone: string | null
+          created_by: string | null
+          created_date: string | null
+          documento: string | null
+          email: string | null
+          empresa: string | null
+          endereco: string | null
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_complemento: string | null
+          endereco_numero: string | null
+          endereco_uf: string | null
+          external_id: string | null
+          modified_date: string | null
+          natureza_juridica: string | null
+          nome: string | null
+          nome_fantasia: string | null
+          nome_razao_social: string | null
+          pais: string | null
+          telefone: string | null
+        }
+        Insert: {
+          _id: string
+          cadastrado_por?: string | null
+          capital_social?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          contato_nome?: string | null
+          contato_telefone?: string | null
+          created_by?: string | null
+          created_date?: string | null
+          documento?: string | null
+          email?: string | null
+          empresa?: string | null
+          endereco?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_complemento?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
+          external_id?: string | null
+          modified_date?: string | null
+          natureza_juridica?: string | null
+          nome?: string | null
+          nome_fantasia?: string | null
+          nome_razao_social?: string | null
+          pais?: string | null
+          telefone?: string | null
+        }
+        Update: {
+          _id?: string
+          cadastrado_por?: string | null
+          capital_social?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          contato_nome?: string | null
+          contato_telefone?: string | null
+          created_by?: string | null
+          created_date?: string | null
+          documento?: string | null
+          email?: string | null
+          empresa?: string | null
+          endereco?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_complemento?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
+          external_id?: string | null
+          modified_date?: string | null
+          natureza_juridica?: string | null
+          nome?: string | null
+          nome_fantasia?: string | null
+          nome_razao_social?: string | null
+          pais?: string | null
+          telefone?: string | null
+        }
+        Relationships: []
+      }
       stripe_keys: {
         Row: {
           created_at: string
@@ -43,6 +379,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          empresa_id: string | null
+          mail: string
+          nome: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          empresa_id?: string | null
+          mail: string
+          nome?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          empresa_id?: string | null
+          mail?: string
+          nome?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["_id"]
+          },
+        ]
       }
     }
     Views: {
