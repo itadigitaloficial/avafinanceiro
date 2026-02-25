@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getCachedData, setCachedData } from "@/lib/queryCache";
+import { syncToSupabase } from "@/lib/supabaseSync";
 
 export interface Categoria {
   _id: string;
@@ -15,6 +16,11 @@ async function fetchCategorias(): Promise<Categoria[]> {
   const data = await res.json();
   const result = Array.isArray(data) ? data : [data];
   setCachedData("categorias", result);
+  // Sync to Supabase in background
+  const mapped = result
+    .filter((c: any) => c._id)
+    .map((c: any) => ({ _id: c._id, categoria: c.categoria || null }));
+  if (mapped.length > 0) syncToSupabase("categorias", mapped);
   return result;
 }
 

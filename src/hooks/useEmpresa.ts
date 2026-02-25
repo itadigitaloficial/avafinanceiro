@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Empresa } from "@/types/conta";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCachedData, setCachedData } from "@/lib/queryCache";
+import { syncEmpresa } from "@/lib/supabaseSync";
 
 const API_URL = "https://n8n.itadigital.com.br/webhook/ava-empresa";
 
@@ -11,6 +12,8 @@ async function fetchEmpresas(): Promise<Empresa[]> {
   const data = await res.json();
   const result = Array.isArray(data) ? data : [data];
   setCachedData("empresa", result);
+  // Sync each empresa to Supabase in background
+  result.forEach((e: any) => { if (e._id) syncEmpresa(e); });
   return result;
 }
 

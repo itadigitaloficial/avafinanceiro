@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { AuthUser } from "@/types/conta";
+import { syncUser } from "@/lib/supabaseSync";
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -57,6 +58,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(u);
         localStorage.setItem("ita_user", JSON.stringify(u));
         localStorage.setItem("ita_login_time", String(Date.now()));
+        // Sync user to Supabase in background
+        syncUser({ user_id: u.user_id, mail: u.mail, nome: u.nome });
         return { ok: true };
       }
 
