@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { getCachedData, setCachedData } from "@/lib/queryCache";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { syncToSupabase } from "@/lib/supabaseSync";
+import { useEffect } from "react";
 
 export interface Categoria {
   _id: string;
@@ -10,26 +11,38 @@ export interface Categoria {
 
 const API_URL = "https://n8n.itadigital.com.br/webhook/financeiro-contas-pagar-categoria";
 
-async function fetchCategorias(): Promise<Categoria[]> {
+async function fetchFromSupabase(): Promise<Categoria[]> {
+  const { data, error } = await supabase.from("categorias").select("*");
+  if (error) throw error;
+  return (data || []) as Categoria[];
+}
+
+async function syncFromN8n(): Promise<void> {
   const res = await fetch(API_URL);
-  if (!res.ok) throw new Error("Erro ao carregar categorias");
+  if (!res.ok) return;
   const data = await res.json();
   const result = Array.isArray(data) ? data : [data];
-  setCachedData("categorias", result);
-  // Sync to Supabase in background
   const mapped = result
     .filter((c: any) => c._id)
     .map((c: any) => ({ _id: c._id, categoria: c.categoria || null }));
-  if (mapped.length > 0) syncToSupabase("categorias", mapped);
-  return result;
+  if (mapped.length > 0) await syncToSupabase("categorias", mapped);
 }
 
 export function useCategorias() {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ["categorias"],
-    queryFn: fetchCategorias,
-    initialData: getCachedData<Categoria[]>("categorias"),
-    staleTime: 300000,
+    queryFn: fetchFromSupabase,
+    staleTime: 60000,
     gcTime: 600000,
   });
+
+  useEffect(() => {
+    syncFromN8n()
+      .then(() => queryClient.invalidateQueries({ queryKey: ["categorias"] }))
+      .catch((err) => console.warn("[Sync] n8n categorias sync failed:", err));
+  }, []);
+
+  return query;
 }

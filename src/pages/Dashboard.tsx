@@ -10,6 +10,7 @@ import { FileText, CheckCircle, AlertTriangle, Clock, Landmark, CreditCard } fro
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { AlertVencimentoAmanha } from "@/components/dashboard/AlertVencimentoAmanha";
 
 const CHART_COLORS = [
   "hsl(215,65%,40%)", "hsl(160,45%,40%)", "hsl(38,92%,50%)",
@@ -188,6 +189,9 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Visão geral financeira — Contas a Pagar</p>
         </div>
+
+        {/* Alerta vencimento amanhã */}
+        {contas && <AlertVencimentoAmanha contas={contas} fornecedorMap={fornecedorMap} />}
 
         {/* KPIs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
